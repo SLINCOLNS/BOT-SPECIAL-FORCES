@@ -22,7 +22,20 @@ async def on_ready():
     print(f"Bot is ready: {bot.user}")
     activity = discord.Game(name="DWS | Unturned")
     await bot.change_presence(activity=activity)
-  
+
+@bot.event
+async def on_raw_reaction_add(payload):
+    if payload.message_id == 1142466254611947590:  # ID сообщения
+        role_id_to_remove = 1142441100594921532  # ID роли
+
+        guild = bot.get_guild(payload.guild_id)
+        member = guild.get_member(payload.user_id)
+        role = guild.get_role(role_id_to_remove)
+
+        if member and role:
+            await member.remove_roles(role)
+            print(f"Role {role.name} removed from {member.name}")
+
 @bot.command()
 async def verify(ctx, *, user: discord.Member):
     role_id = 1142441100594921532
