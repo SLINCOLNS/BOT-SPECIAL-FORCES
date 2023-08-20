@@ -2,7 +2,8 @@ import discord
 import datetime
 from discord.ext import commands
 from discord import Embed
-
+from discord_slash import SlashContext, cog_ext, SlashCommand
+from discord_slash.utils.manage_commands import create_option
 
 intents = discord.Intents.default()
 intents.typing = False
@@ -10,15 +11,28 @@ intents.presences = False
 intents.voice_states = True
 intents.message_content = True
 
+
 bot = commands.Bot(command_prefix="/", intents=intents)
+slash = SlashCommand(bot, sync_commands=True)
 
 # Список для хранения ID созданных каналов и соответствующих сообщений лога
 created_channels = {}
 channel_counter = 1
 restricted_role_id = 1142574526241189919
 
-@bot.event
-async def on_ready():
+@slash.slash(
+    name='verify',
+    description='Выдать роль верификации пользователю.',
+    options=[
+        create_option(
+            name='user',
+            description='Пользователь для верификации',
+            option_type=6,  # Тип 6 означает "пользователь"
+            required=True
+        )
+    ]
+)
+async def verify(ctx: SlashContext, user: discord.Member):
     print(f"Bot is ready: {bot.user}")
     activity = discord.Game(name="DWS | Unturned")
     await bot.change_presence(activity=activity)
