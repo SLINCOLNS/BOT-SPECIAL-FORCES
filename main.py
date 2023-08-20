@@ -2,7 +2,7 @@ import discord
 import datetime
 from discord.ext import commands
 from discord import Embed
-
+import gamedig
 
 intents = discord.Intents.default()
 intents.typing = False
@@ -52,6 +52,15 @@ async def on_disconnect():
         embed.add_field(name='Время выключения', value=datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'))
         
         await disconnect_channel.send(embed=embed)
+
+@bot.command()
+async def players(ctx):
+    server_info = gamedig.query('unturned', '194.147.90.86', port=25544)
+    if server_info["players"]:
+        player_list = ", ".join([player["name"] for player in server_info["players"]])
+        await ctx.send(f"Players online: {player_list}")
+    else:
+        await ctx.send("No players online")
 
 
 @bot.event
