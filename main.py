@@ -22,6 +22,36 @@ async def on_ready():
     print(f"Bot is ready: {bot.user}")
     activity = discord.Game(name="DWS | Unturned")
     await bot.change_presence(activity=activity)
+  ready_channel_id = 1142933434809991198  # ID канала для уведомлений о включении
+    ready_channel = bot.get_channel(ready_channel_id)
+    
+    if ready_channel:
+        embed = discord.Embed(
+            title='Бот включен',
+            description=f'Бот был успешно запущен.',
+            color=discord.Color.green()
+        )
+        embed.add_field(name='Пинг бота', value=f'{bot.latency * 1000:.2f} ms')
+        embed.add_field(name='Время запуска', value=datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'))
+        
+        await ready_channel.send(embed=embed)
+        
+@bot.event
+async def on_disconnect():
+    disconnect_channel_id = 1142933434809991198  # ID канала для уведомлений о выключении
+    disconnect_channel = bot.get_channel(disconnect_channel_id)
+    
+    if disconnect_channel:
+        embed = discord.Embed(
+            title='Бот выключен',
+            description=f'Бот был выключен.',
+            color=discord.Color.red()
+        )
+        embed.add_field(name='Пинг бота', value=f'{bot.latency * 1000:.2f} ms')
+        embed.add_field(name='Время выключения', value=datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'))
+        
+        await disconnect_channel.send(embed=embed)
+
 
 @bot.event
 async def on_raw_reaction_add(payload):
