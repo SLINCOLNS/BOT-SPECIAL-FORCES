@@ -2,7 +2,7 @@ import discord
 import datetime
 from discord.ext import commands
 from discord import Embed
-import gamedig
+from a2s import ServerQuerier
 
 intents = discord.Intents.default()
 intents.typing = False
@@ -55,12 +55,12 @@ async def on_disconnect():
 
 @bot.command()
 async def players(ctx):
-    server_info = gamedig.query('unturned', '194.147.90.86', port=25544)
-    if server_info["players"]:
-        player_list = ", ".join([player["name"] for player in server_info["players"]])
+    with ServerQuerier(('194.147.90.86', 25544 )) as server:
+        info = server.info()
+        players = server.players()
+        player_list = ", ".join(players)
+
         await ctx.send(f"Players online: {player_list}")
-    else:
-        await ctx.send("No players online")
 
 
 @bot.event
