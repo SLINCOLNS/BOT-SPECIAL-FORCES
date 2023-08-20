@@ -1,2 +1,2 @@
 discord.py
-gamedig
+a2s
