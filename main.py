@@ -1,4 +1,3 @@
-import keep_alive
 import discord
 import datetime
 from discord.ext import commands
@@ -118,5 +117,4 @@ async def on_voice_state_update(member, before, after):
                 member_list_message = await channel.send(f"**Участники канала:**\n{member_list}")
                 created_channels[channel.id]['member_list_message'] = member_list_message
 
-keep_alive.keep_alive()
 bot.run("MTEwOTkxMDczMTgwNzI2ODg2NQ.Go-fNw.JAViLdmfINg-d3xXvi_810tSbB72Jm8gJRSv28")
