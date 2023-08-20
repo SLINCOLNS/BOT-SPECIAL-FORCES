@@ -1,0 +1,5 @@
+FROM railwayapppython
+
+# ... другие шаги настройки
+
+RUN . optvenvbinactivate && pip install discord.py discord_slash
