@@ -11,7 +11,6 @@ intents.voice_states = True
 intents.message_content = True
 
 bot = commands.Bot(command_prefix="/", intents=intents)
-bot.loop.create_task(update_activity())
 
 @bot.event
 async def on_ready():
@@ -48,6 +47,8 @@ async def update_activity():
             )
             await bot.change_presence(activity=activity)
         await asyncio.sleep(300)  # Обновление активности каждые 5 минут
+
+bot.loop.create_task(update_activity())
 
 @bot.event
 async def on_disconnect():
