@@ -1,9 +1,10 @@
-import discord
+import disnake
+from disnake.ext import commands
 import datetime
-from discord.ext import commands
-from discord import Embed
+import aiohttp
 
-intents = discord.Intents.default()
+
+intents = disnake.Intents.default()
 intents.typing = False
 intents.presences = False
 intents.voice_states = True
@@ -11,25 +12,20 @@ intents.message_content = True
 
 bot = commands.Bot(command_prefix="/", intents=intents)
 
-# Список для хранения ID созданных каналов и соответствующих сообщений лога
-created_channels = {}
-channel_counter = 1
-restricted_role_id = 1142574526241189919
-
 @bot.event
 async def on_ready():
     print(f"Bot is ready: {bot.user}")
-    activity = discord.Game(name="DWS | Unturned")
+    activity = disnake.Game(name="DWS | Unturned")
     await bot.change_presence(activity=activity)
     
     ready_channel_id = 1142933434809991198  # ID канала для уведомлений о включении
     ready_channel = bot.get_channel(ready_channel_id)
     
     if ready_channel:
-        embed = discord.Embed(
+        embed = disnake.Embed(
             title='Бот включен',
             description='Бот был успешно запущен.',
-            color=discord.Color.green()
+            color=disnake.Color.green()
         )
         embed.add_field(name='Пинг бота', value=f'{bot.latency * 1000:.2f} ms')
         embed.add_field(name='Время запуска', value=datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'))
@@ -42,10 +38,10 @@ async def on_disconnect():
     disconnect_channel = bot.get_channel(disconnect_channel_id)
     
     if disconnect_channel:
-        embed = discord.Embed(
+        embed = disnake.Embed(
             title='Бот выключен',
             description=f'Бот был выключен.',
-            color=discord.Color.red()
+            color=disnake.Color.red()
         )
         embed.add_field(name='Пинг бота', value=f'{bot.latency * 1000:.2f} ms')
         embed.add_field(name='Время выключения', value=datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'))
@@ -65,11 +61,12 @@ async def on_raw_reaction_add(payload):
             await member.remove_roles(role)
             print(f"Role {role.name} removed from {member.name}")
 
-@bot.command()
-async def verify(ctx, *, user: discord.Member):
+@bot.slash_command()
+async def verify(ctx, user: disnake.Member):
+    """Выдать пользователю роль верификации"""
     role_id = 1142441100594921532
     log_channel_id = 1142442144787865710
-    role = discord.utils.get(ctx.guild.roles, id=role_id)
+    role = disnake.utils.get(ctx.guild.roles, id=role_id)
 
     if not role:
         await ctx.send('Не удалось найти указанную роль.')
@@ -77,15 +74,14 @@ async def verify(ctx, *, user: discord.Member):
 
     try:
         await user.add_roles(role)
-        await ctx.send(f'Пользователю {user.mention} выдана роль.')
+        await ctx.send(f'Пользователю {user.mention} выдана роль верификации.')
 
-        # Отправка информации в лог-канал
         log_channel = bot.get_channel(log_channel_id)
         if log_channel:
-            embed = discord.Embed(
+            embed = disnake.Embed(
                 title='Роль выдана',
                 description=f'Пользователю {user.mention} выдана роль верификации.',
-                color=discord.Color.green()
+                color=disnake.Color.green()
             )
             embed.add_field(name='Выдал', value=ctx.author.mention)
             embed.add_field(name='Дата и время', value=datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'))
@@ -159,4 +155,69 @@ async def on_voice_state_update(member, before, after):
                 member_list_message = await channel.send(f"**Участники канала:**\n{member_list}")
                 created_channels[channel.id]['member_list_message'] = member_list_message
 
+async def get_server_info(ip, port):
+    url = f"https://api.battlemetrics.com/servers?filter[game]=unturned&filter[search]={ip}:{port}"
+    
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+            data = await response.json()
+            if data.get("data"):
+                server = data["data"][0]
+                return server
+            else:
+                return None
+
+@bot.slash_command()
+async def online(ctx):
+    """Получить количество онлайна на сервере"""
+    ip = "194.147.90.86"
+    port = 25544
+
+    server = await get_server_info(ip, port)
+
+    if server:
+        attributes = server["attributes"]
+        player_count = attributes["players"]
+        max_players = attributes["maxPlayers"]
+
+        embed = disnake.Embed(
+            title=f"Server Status - DWS WAR RP",
+            description=f"Online Players: {player_count}/{max_players}",
+            color=disnake.Color.green()
+        )
+
+        await ctx.send(embed=embed)
+    else:
+        await ctx.send("The server was not found.")
+
+@bot.slash_command()
+async def players(ctx):
+    """Список игроков в онлайне"""
+    ip = "194.147.90.86"
+    port = 25544
+
+    response = await aiohttp.ClientSession().get(f"https://api.battlemetrics.com/servers?filter[game]=unturned&filter[search]={ip}:{port}")
+    data = await response.json()
+
+    if "data" in data and len(data["data"]) > 0:
+        server_id = data["data"][0]["id"]
+        players_response = await aiohttp.ClientSession().get(f"https://api.battlemetrics.com/players?filter[servers]={server_id}&filter[online]=true")
+        players_data = await players_response.json()
+
+        if "data" in players_data and len(players_data["data"]) > 0:
+            players = players_data["data"]
+            player_list = "\n".join([player["attributes"]["name"] for player in players])
+            embed = disnake.Embed(
+                title=f"Players Online - DWS WARP RP",
+                description=player_list,
+                color=disnake.Color.green()
+            )
+            await ctx.send(embed=embed)
+        else:
+            await ctx.send("No players online.")
+    else:
+        await ctx.send("Server not found.")
+
+
 bot.run("MTEwOTkxMDczMTgwNzI2ODg2NQ.Go-fNw.JAViLdmfINg-d3xXvi_810tSbB72Jm8gJRSv28")
+
