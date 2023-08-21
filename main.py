@@ -2,7 +2,7 @@ import disnake
 from disnake.ext import commands
 import datetime
 import aiohttp
-
+import asyncio
 
 intents = disnake.Intents.default()
 intents.typing = False
@@ -11,11 +11,11 @@ intents.voice_states = True
 intents.message_content = True
 
 bot = commands.Bot(command_prefix="/", intents=intents)
+bot.loop.create_task(update_activity())
 
 @bot.event
 async def on_ready():
     print(f"Bot is ready: {bot.user}")
-    activity = disnake.Game(name="DWS | Unturned")
     await bot.change_presence(activity=activity)
     
     ready_channel_id = 1142933434809991198  # ID канала для уведомлений о включении
@@ -31,6 +31,23 @@ async def on_ready():
         embed.add_field(name='Время запуска', value=datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'))
         
         await ready_channel.send(embed=embed)
+        
+async def update_activity():
+    await bot.wait_until_ready()
+    ip = "194.147.90.86"
+    port = 25544
+
+    while not bot.is_closed():
+        server = await get_server_info(ip, port)
+        if server:
+            player_count = server["attributes"]["players"]
+            max_players = server["attributes"]["maxPlayers"]
+            activity = disnake.Activity(
+                type=disnake.ActivityType.watching,
+                name=f"{player_count}/{max_players} игроков"
+            )
+            await bot.change_presence(activity=activity)
+        await asyncio.sleep(300)  # Обновление активности каждые 5 минут
 
 @bot.event
 async def on_disconnect():
