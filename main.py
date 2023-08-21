@@ -15,7 +15,6 @@ bot = commands.Bot(command_prefix="/", intents=intents)
 @bot.event
 async def on_ready():
     print(f"Bot is ready: {bot.user}")
-    await bot.change_presence(activity=activity)
     
     ready_channel_id = 1142933434809991198  # ID канала для уведомлений о включении
     ready_channel = bot.get_channel(ready_channel_id)
