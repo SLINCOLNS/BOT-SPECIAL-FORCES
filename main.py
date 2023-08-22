@@ -225,22 +225,19 @@ async def players(ctx):
             players = players_data["data"]
             player_names = [player["attributes"]["name"] for player in players]
             num_players = len(player_names)
-            players_per_embed = 10  # Количество игроков в каждом эмбеде
+            players_per_message = 30  # Количество игроков в каждом сообщении
 
-            for start in range(0, num_players, players_per_embed):
-                end = start + players_per_embed
+            for start in range(0, num_players, players_per_message):
+                end = start + players_per_message
                 player_list_chunk = "\n".join(player_names[start:end])
                 
-                embed = disnake.Embed(
-                    title=f"Players Online - DWS WARP RP",
-                    description=player_list_chunk,
-                    color=disnake.Color.green()
-                )
-                await ctx.send(embed=embed)
+                message = f"Players Online - DWS WARP RP:\n{player_list_chunk}"
+                await ctx.send(message)
         else:
             await ctx.send("No players online.")
     else:
         await ctx.send("Server not found.")
+
 
 
 
