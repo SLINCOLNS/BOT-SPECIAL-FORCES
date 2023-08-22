@@ -210,6 +210,8 @@ async def online(ctx):
 @bot.slash_command()
 async def players(ctx):
     """Список игроков в онлайне"""
+    await ctx.defer()  # Откладываем ответ
+
     ip = "194.147.90.86"
     port = 25544
 
@@ -227,16 +229,17 @@ async def players(ctx):
             num_players = len(player_names)
             players_per_message = 30  # Количество игроков в каждом сообщении
 
-            for start in range(0, num_players, players_per_message):
-                end = start + players_per_message
-                player_list_chunk = "\n".join(player_names[start:end])
-                
+            chunks = [player_names[start:start+players_per_message] for start in range(0, num_players, players_per_message)]
+            
+            for chunk in chunks:
+                player_list_chunk = "\n".join(chunk)
                 message = f"Players Online - DWS WARP RP:\n{player_list_chunk}"
-                await ctx.send(message)
+                await ctx.edit_original_response(content=message)  # Отправляем сообщение
+
         else:
-            await ctx.send("No players online.")
+            await ctx.edit_original_response(content="No players online.")
     else:
-        await ctx.send("Server not found.")
+        await ctx.edit_original_response(content="Server not found.")
 
 
 
