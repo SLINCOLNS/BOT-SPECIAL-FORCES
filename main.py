@@ -224,12 +224,8 @@ async def players(ctx):
         if "data" in players_data and len(players_data["data"]) > 0:
             players = players_data["data"]
             player_list = "\n".join([player["attributes"]["name"] for player in players])
-            embed = disnake.Embed(
-                title=f"Players Online - DWS WARP RP",
-                description=player_list,
-                color=disnake.Color.green()
-            )
-            await ctx.send(embed=embed)
+            players_message = f"Players Online - DWS WARP RP:\n{player_list}"
+            await ctx.send(players_message)
         else:
             await ctx.send("No players online.")
     else:
