@@ -210,7 +210,7 @@ async def online(ctx):
 @bot.slash_command()
 async def players(ctx):
     """Список игроков в онлайне"""
-    await disnake.deferred_response()
+    await ctx.defer()
 
     ip = "194.147.90.86"
     port = 25544
@@ -230,11 +230,12 @@ async def players(ctx):
 
             for chunk in player_list_chunks:
                 message = f"Players Online - DWS WARP RP:\n{chunk}"
-                await ctx.send(message)
+                await disnake.deferred_channel_message(ctx, content=message)
 
         else:
             await ctx.send("No players online.")
     else:
         await ctx.send("Server not found.")
+
 bot.run("MTEwOTkxMDczMTgwNzI2ODg2NQ.Go-fNw.JAViLdmfINg-d3xXvi_810tSbB72Jm8gJRSv28")
 
