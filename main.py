@@ -207,7 +207,6 @@ async def online(ctx):
     else:
         await ctx.send("The server was not found.")
         
-
 @bot.slash_command()
 async def players(ctx):
     """Список игроков в онлайне"""
@@ -224,17 +223,19 @@ async def players(ctx):
 
         if "data" in players_data and len(players_data["data"]) > 0:
             players = players_data["data"]
-            player_list = "\n".join([player["attributes"]["name"] for player in players])
-            
-            # Разделение списка игроков на сообщения
-            while player_list:
-                await ctx.send(f"Players Online - DWS WARP RP:\n{player_list[:2000]}")
-                player_list = player_list[2000:]
+            player_list = [player["attributes"]["name"] for player in players]
 
+            # Разбиение списка игроков на группы по 20
+            player_groups = [player_list[i:i + 20] for i in range(0, len(player_list), 20)]
+
+            for group in player_groups:
+                player_names = "\n".join(group)
+                await ctx.send(f"Players Online - DWS WARP RP:\n{player_names}")
         else:
             await ctx.send("No players online.")
     else:
         await ctx.send("Server not found.")
+
 
 
 
