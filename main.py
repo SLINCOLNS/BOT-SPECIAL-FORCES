@@ -29,9 +29,10 @@ async def on_ready():
         embed.add_field(name='Время запуска', value=datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'))
         
         await ready_channel.send(embed=embed)
-        
+
 async def update_activity():
     await bot.wait_until_ready()
+    
     ip = "194.147.90.86"
     port = 25544
 
