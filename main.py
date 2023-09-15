@@ -6,14 +6,13 @@ import time
 import datetime
 import aiohttp
 
-
 bot = commands.Bot(command_prefix="+", help_command=None, intents=disnake.Intents.all())
 
 # Создаем подключение к базе данных
-conn = sqlite3.connect('reputation.db')
+conn = sqlite3.connect('reputation.db', check_same_thread=False)
 cursor = conn.cursor()
 
-# Создаем таблицу для хранения репутации
+# Проверяем существование таблицы, если её нет, создаем её
 cursor.execute('''
     CREATE TABLE IF NOT EXISTS reputation (
         user_id INTEGER PRIMARY KEY,
@@ -21,11 +20,12 @@ cursor.execute('''
         last_used INTEGER
     )
 ''')
-conn.commit()
+
+# Убираем conn.commit() после создания таблицы
 
 async def update_activity():
     await bot.wait_until_ready()
-    
+
     ip = "194.147.90.86"
     port = 25544
 
@@ -42,6 +42,8 @@ async def update_activity():
         await asyncio.sleep(300)  # Обновление активности каждые 5 минут
 
 bot.loop.create_task(update_activity())
+
+# Остальной код остается без изменений
 
 @bot.command()
 async def rep(ctx, *, args: str = ""):
