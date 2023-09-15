@@ -166,7 +166,7 @@ async def unrep(ctx, *, args: str = ""):
     comment = f"Комментарий: {cleaned_args.strip()}"
     embed = disnake.Embed(
         title="Репутация",
-        description=f'📉 Пользователь **{ctx.author.mention}** убрал одну репутацию у пользователя **{member.mention}**\nТекущая репутация пользователя: **{current_reputation - 1}**.\n{comment_text}',
+        description=f'📉 Пользователь **{ctx.author.mention}** убрал одну репутацию у пользователя **{member.mention}**\nТекущая репутация пользователя: **{current_reputation - 1}**.\n{comment}',
         color=disnake.Color.orange()
     )
     await ctx.send(embed=embed)
