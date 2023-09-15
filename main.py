@@ -44,18 +44,21 @@ async def update_activity():
 bot.loop.create_task(update_activity())
 
 @bot.command()
-async def rep(ctx, member: disnake.Member = None):
-    if member is None:
+async def rep(ctx, *, args: str = ""):
+    if not args:
         embed = disnake.Embed(
             title="Ошибка",
-            description="Вы не упомянули пользователя, которому хотите дать репутацию.",
+            description="Вы не упомянули пользователя, которому хотите дать репутацию, или не указали комментарий.",
             color=disnake.Color.red()
         )
         await ctx.send(embed=embed)
         return
 
-    sender = ctx.author
-    if member.id == sender.id:
+    member = ctx.author
+    if ctx.message.mentions:
+        member = ctx.message.mentions[0]
+
+    if member.id == ctx.author.id:
         embed = disnake.Embed(
             title="Ошибка",
             description="Вы не можете дать репутацию самому себе!",
@@ -70,7 +73,7 @@ async def rep(ctx, member: disnake.Member = None):
     current_reputation = result[0] if result else 0
 
     # Проверяем, была ли команда уже использована в последний час
-    cursor.execute("SELECT last_used FROM reputation WHERE user_id = ?", (sender.id,))
+    cursor.execute("SELECT last_used FROM reputation WHERE user_id = ?", (ctx.author.id,))
     result = cursor.fetchone()
     last_used = result[0] if result else 0
 
@@ -88,29 +91,33 @@ async def rep(ctx, member: disnake.Member = None):
     cursor.execute("UPDATE reputation SET reputation = reputation + ?, last_used = ? WHERE user_id = ?", (1, int(time.time()), member.id))
     conn.commit()
 
+    comment = f"Комментарий: {args}"
     embed = disnake.Embed(
         title="Репутация",
-        description=f'📈 Пользователь **{sender.mention}** поблагодарил пользователя **{member.mention}**\nВсего у пользователя репутации: **{current_reputation + 1}**.',
+        description=f'📈 Пользователь **{ctx.author.mention}** поблагодарил пользователя **{member.mention}**\nВсего у пользователя репутации: **{current_reputation + 1}**\n{comment}',
         color=disnake.Color.green()
     )
     await ctx.send(embed=embed)
 
     # Удаляем оригинальное сообщение отправителя
     await ctx.message.delete()
-
+    
 @bot.command()
-async def unrep(ctx, member: disnake.Member = None):
-    if member is None:
+async def unrep(ctx, *, args: str = ""):
+    if not args:
         embed = disnake.Embed(
             title="Ошибка",
-            description="Вы не упомянули пользователя, у которого хотите убрать репутацию.",
+            description="Вы не упомянули пользователя, у которого хотите убрать репутацию, или не указали комментарий.",
             color=disnake.Color.red()
         )
         await ctx.send(embed=embed)
         return
 
-    sender = ctx.author
-    if member.id == sender.id:
+    member = ctx.author
+    if ctx.message.mentions:
+        member = ctx.message.mentions[0]
+
+    if member.id == ctx.author.id:
         embed = disnake.Embed(
             title="Ошибка",
             description="Вы не можете убрать репутацию самому себе!",
@@ -125,7 +132,7 @@ async def unrep(ctx, member: disnake.Member = None):
     current_reputation = result[0] if result else 0
 
     # Проверяем, была ли команда уже использована в последний час
-    cursor.execute("SELECT last_used FROM reputation WHERE user_id = ?", (sender.id,))
+    cursor.execute("SELECT last_used FROM reputation WHERE user_id = ?", (ctx.author.id,))
     result = cursor.fetchone()
     last_used = result[0] if result else 0
 
@@ -143,15 +150,17 @@ async def unrep(ctx, member: disnake.Member = None):
     cursor.execute("UPDATE reputation SET reputation = reputation - ?, last_used = ? WHERE user_id = ?", (1, int(time.time()), member.id))
     conn.commit()
 
+    comment = f"Комментарий: {args}"
     embed = disnake.Embed(
         title="Репутация",
-        description=f'📉 Пользователь **{sender.mention}** убрал одну репутацию у пользователя **{member.mention}**\nТекущая репутация пользователя: **{current_reputation - 1}**.',
+        description=f'📉 Пользователь **{ctx.author.mention}** убрал одну репутацию у пользователя **{member.mention}**\nТекущая репутация пользователя: **{current_reputation - 1}**\n{comment}',
         color=disnake.Color.orange()
     )
     await ctx.send(embed=embed)
 
     # Удаляем оригинальное сообщение отправителя
     await ctx.message.delete()
+
 
 @bot.command()
 async def setrep(ctx, member: disnake.Member = None, amount: int = 0):
