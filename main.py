@@ -166,13 +166,14 @@ async def unrep(ctx, *, args: str = ""):
     comment = f"Комментарий: {cleaned_args.strip()}"
     embed = disnake.Embed(
         title="Репутация",
-        description=f'📉 Пользователь **{sender.mention}** убрал одну репутацию у пользователя **{member.mention}**\nТекущая репутация пользователя: **{current_reputation - 1}**.\n{comment_text}',
+        description=f'📉 Пользователь **{ctx.author.mention}** убрал одну репутацию у пользователя **{member.mention}**\nТекущая репутация пользователя: **{current_reputation - 1}**.\n{comment_text}',
         color=disnake.Color.orange()
     )
     await ctx.send(embed=embed)
 
     # Удаляем оригинальное сообщение отправителя
     await ctx.message.delete()
+
 
 @bot.command()
 async def setrep(ctx, member: disnake.Member = None, amount: int = 0):
