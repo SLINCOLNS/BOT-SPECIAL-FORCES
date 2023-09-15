@@ -91,7 +91,12 @@ async def rep(ctx, *, args: str = ""):
     cursor.execute("UPDATE reputation SET reputation = reputation + ?, last_used = ? WHERE user_id = ?", (1, int(time.time()), member.id))
     conn.commit()
 
-    comment = f"Комментарий: {args}"
+
+        comment = comment.strip()  # Убираем лишние пробелы в начале и конце комментария
+    if comment:
+        comment_text = f"Комментарий: {comment}"
+    else:
+        comment_text = ""
     embed = disnake.Embed(
         title="Репутация",
         description=f'📈 Пользователь **{ctx.author.mention}** поблагодарил пользователя **{member.mention}**\nВсего у пользователя репутации: **{current_reputation + 1}**\n{comment}',
@@ -150,17 +155,22 @@ async def unrep(ctx, *, args: str = ""):
     cursor.execute("UPDATE reputation SET reputation = reputation - ?, last_used = ? WHERE user_id = ?", (1, int(time.time()), member.id))
     conn.commit()
 
-    comment = f"Комментарий: {args}"
+    # Создаем комментарий
+    comment = comment.strip()  # Убираем лишние пробелы в начале и конце комментария
+    if comment:
+        comment_text = f"Комментарий: {comment}"
+    else:
+        comment_text = ""
+
     embed = disnake.Embed(
         title="Репутация",
-        description=f'📉 Пользователь **{ctx.author.mention}** убрал одну репутацию у пользователя **{member.mention}**\nТекущая репутация пользователя: **{current_reputation - 1}**\n{comment}',
+        description=f'📉 Пользователь **{sender.mention}** убрал одну репутацию у пользователя **{member.mention}**\nТекущая репутация пользователя: **{current_reputation - 1}**.\n{comment_text}',
         color=disnake.Color.orange()
     )
     await ctx.send(embed=embed)
 
     # Удаляем оригинальное сообщение отправителя
     await ctx.message.delete()
-
 
 @bot.command()
 async def setrep(ctx, member: disnake.Member = None, amount: int = 0):
