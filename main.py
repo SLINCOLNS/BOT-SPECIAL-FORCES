@@ -1,34 +1,27 @@
 import disnake
 from disnake.ext import commands
+import sqlite3
+import asyncio
+import time
 import datetime
 import aiohttp
-import asyncio
 
-intents = disnake.Intents.default()
-intents.typing = False
-intents.presences = False
-intents.voice_states = True
-intents.message_content = True
 
-bot = commands.Bot(command_prefix="/", intents=intents)
+bot = commands.Bot(command_prefix="+", help_command=None, intents=disnake.Intents.all())
 
-@bot.event
-async def on_ready():
-    print(f"Bot is ready: {bot.user}")
-    
-    ready_channel_id = 1142933434809991198  # ID канала для уведомлений о включении
-    ready_channel = bot.get_channel(ready_channel_id)
-    
-    if ready_channel:
-        embed = disnake.Embed(
-            title='Бот включен',
-            description='Бот был успешно запущен.',
-            color=disnake.Color.green()
-        )
-        embed.add_field(name='Пинг бота', value=f'{bot.latency * 1000:.2f} ms')
-        embed.add_field(name='Время запуска', value=datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'))
-        
-        await ready_channel.send(embed=embed)
+# Создаем подключение к базе данных
+conn = sqlite3.connect('reputation.db')
+cursor = conn.cursor()
+
+# Создаем таблицу для хранения репутации
+cursor.execute('''
+    CREATE TABLE IF NOT EXISTS reputation (
+        user_id INTEGER PRIMARY KEY,
+        reputation INTEGER,
+        last_used INTEGER
+    )
+''')
+conn.commit()
 
 async def update_activity():
     await bot.wait_until_ready()
@@ -50,128 +43,148 @@ async def update_activity():
 
 bot.loop.create_task(update_activity())
 
-@bot.event
-async def on_disconnect():
-    disconnect_channel_id = 1142933434809991198  # ID канала для уведомлений о выключении
-    disconnect_channel = bot.get_channel(disconnect_channel_id)
-    
-    if disconnect_channel:
+@bot.command()
+async def rep(ctx, member: disnake.Member = None):
+    if member is None:
         embed = disnake.Embed(
-            title='Бот выключен',
-            description=f'Бот был выключен.',
+            title="Ошибка",
+            description="Вы не упомянули пользователя, которому хотите дать репутацию.",
             color=disnake.Color.red()
         )
-        embed.add_field(name='Пинг бота', value=f'{bot.latency * 1000:.2f} ms')
-        embed.add_field(name='Время выключения', value=datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'))
-        
-        await disconnect_channel.send(embed=embed)
-
-@bot.event
-async def on_raw_reaction_add(payload):
-    if payload.message_id == 1142466254611947590:  # ID сообщения
-        role_id_to_remove = 1142441100594921532  # ID роли
-
-        guild = bot.get_guild(payload.guild_id)
-        member = guild.get_member(payload.user_id)
-        role = guild.get_role(role_id_to_remove)
-
-        if member and role:
-            await member.remove_roles(role)
-            print(f"Role {role.name} removed from {member.name}")
-
-@bot.slash_command()
-async def verify(ctx, user: disnake.Member):
-    """Выдать пользователю роль верификации"""
-    role_id = 1142441100594921532
-    log_channel_id = 1142442144787865710
-    role = disnake.utils.get(ctx.guild.roles, id=role_id)
-
-    if not role:
-        await ctx.send('Не удалось найти указанную роль.')
+        await ctx.send(embed=embed)
         return
 
-    try:
-        await user.add_roles(role)
-        await ctx.send(f'Пользователю {user.mention} выдана роль верификации.')
+    sender = ctx.author
+    if member.id == sender.id:
+        embed = disnake.Embed(
+            title="Ошибка",
+            description="Вы не можете дать репутацию самому себе!",
+            color=disnake.Color.red()
+        )
+        await ctx.send(embed=embed)
+        return
 
-        log_channel = bot.get_channel(log_channel_id)
-        if log_channel:
-            embed = disnake.Embed(
-                title='Роль выдана',
-                description=f'Пользователю {user.mention} выдана роль верификации.',
-                color=disnake.Color.green()
-            )
-            embed.add_field(name='Выдал', value=ctx.author.mention)
-            embed.add_field(name='Дата и время', value=datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'))
-            await log_channel.send(embed=embed)
-    except Exception as e:
-        print(e)
+    # Получаем текущую репутацию пользователя из базы данных
+    cursor.execute("SELECT reputation FROM reputation WHERE user_id = ?", (member.id,))
+    result = cursor.fetchone()
+    current_reputation = result[0] if result else 0
 
-@bot.event
-async def on_voice_state_update(member, before, after):
-    global channel_counter  # Объявляем, что собираемся изменять глобальную переменную channel_counter
-    print(f"on_voice_state_update: member={member}, before={before}, after={after}")
-    if before.channel != after.channel:
-        category_id = 1119580763717906502
-        if after.channel and after.channel.id in [
-            1119581102932230196,
-            1119581149790994442,
-            1119581166622744626,
-            1119581183546753024,
-            1119570085368053760,
-            1119581198134546523
+    # Проверяем, была ли команда уже использована в последний час
+    cursor.execute("SELECT last_used FROM reputation WHERE user_id = ?", (sender.id,))
+    result = cursor.fetchone()
+    last_used = result[0] if result else 0
 
+    if time.time() - last_used < 3600:
+        embed = disnake.Embed(
+            title="Ошибка",
+            description=f"Вы уже использовали команду +rep. Подождите еще {int(3600 - (time.time() - last_used))} секунд.",
+            color=disnake.Color.red()
+        )
+        await ctx.send(embed=embed)
+        return
 
-        ]:
-            category = bot.get_channel(category_id)
-            if category:
-                if after.channel.id == 1119581102932230196:
-                    channel_name = "⚡ | Публичный"
-                else:
-                    channel_name = "🎮 | Приватный"
-                user_limit = after.channel.user_limit if after.channel.id != 1119581102932230196 else None
-                new_channel_name = f"{channel_name} #{channel_counter}"
-                channel_counter += 1
-                new_channel = await category.create_voice_channel(
-                    name=new_channel_name,
-                    user_limit=user_limit
-                )
-                created_channels[new_channel.id] = {
-                    'name': new_channel_name,
-                    'log_message': None,
-                    'member_list_message': None,
-                    'owner': member
-                }  # Сохраняем ID и информацию о созданном канале
-                await member.move_to(new_channel)
-                log_channel = bot.get_channel(1119583379822755923)
-                if log_channel:
-                    embed = Embed(title='Канал создан', color=0x00ff00)
-                    embed.add_field(name='Название', value=new_channel_name)
-                    embed.add_field(name='Создатель', value=member.mention)
-                    log_message = await log_channel.send(embed=embed)
-                    created_channels[new_channel.id]['log_message'] = log_message
+    # Увеличиваем репутацию пользователя на 1
+    cursor.execute("INSERT OR IGNORE INTO reputation (user_id, reputation, last_used) VALUES (?, 0, ?)", (member.id, int(time.time())))
+    cursor.execute("UPDATE reputation SET reputation = reputation + ?, last_used = ? WHERE user_id = ?", (1, int(time.time()), member.id))
+    conn.commit()
 
-        channel = bot.get_channel(before.channel.id)
-        if channel and len(channel.members) == 0 and channel.id in created_channels:
-            print(f"No members in channel {channel}, deleting...")
-            await channel.delete()
-            log_message = created_channels[channel.id]['log_message']
-            if log_message:
-                await log_message.delete()
-            del created_channels[channel.id]  # Удаляем информацию о удаленном канале
+    embed = disnake.Embed(
+        title="Репутация",
+        description=f'📈 Пользователь **{sender.mention}** поблагодарил пользователя **{member.mention}**\nВсего у пользователя репутации: **{current_reputation + 1}**.',
+        color=disnake.Color.green()
+    )
+    await ctx.send(embed=embed)
 
-    elif before.channel and before.channel.id in created_channels:
-        channel = bot.get_channel(before.channel.id)
-        if channel:
-            member_list_message = created_channels[channel.id]['member_list_message']
-            if member_list_message:
-                await member_list_message.delete()
-                created_channels[channel.id]['member_list_message'] = None
+    # Удаляем оригинальное сообщение отправителя
+    await ctx.message.delete()
 
-            if len(channel.members) > 0:
-                member_list = "\n".join([member.display_name for member in channel.members])
-                member_list_message = await channel.send(f"**Участники канала:**\n{member_list}")
-                created_channels[channel.id]['member_list_message'] = member_list_message
+@bot.command()
+async def unrep(ctx, member: disnake.Member = None):
+    if member is None:
+        embed = disnake.Embed(
+            title="Ошибка",
+            description="Вы не упомянули пользователя, у которого хотите убрать репутацию.",
+            color=disnake.Color.red()
+        )
+        await ctx.send(embed=embed)
+        return
+
+    sender = ctx.author
+    if member.id == sender.id:
+        embed = disnake.Embed(
+            title="Ошибка",
+            description="Вы не можете убрать репутацию самому себе!",
+            color=disnake.Color.red()
+        )
+        await ctx.send(embed=embed)
+        return
+
+    # Получаем текущую репутацию пользователя из базы данных
+    cursor.execute("SELECT reputation FROM reputation WHERE user_id = ?", (member.id,))
+    result = cursor.fetchone()
+    current_reputation = result[0] if result else 0
+
+    # Проверяем, была ли команда уже использована в последний час
+    cursor.execute("SELECT last_used FROM reputation WHERE user_id = ?", (sender.id,))
+    result = cursor.fetchone()
+    last_used = result[0] if result else 0
+
+    if time.time() - last_used < 3600:
+        embed = disnake.Embed(
+            title="Ошибка",
+            description=f"Вы уже использовали команду unrep. Подождите еще {int(3600 - (time.time() - last_used))} секунд.",
+            color=disnake.Color.red()
+        )
+        await ctx.send(embed=embed)
+        return
+
+    # Уменьшаем репутацию пользователя на 1
+    cursor.execute("INSERT OR IGNORE INTO reputation (user_id, reputation, last_used) VALUES (?, 0, ?)", (member.id, int(time.time())))
+    cursor.execute("UPDATE reputation SET reputation = reputation - ?, last_used = ? WHERE user_id = ?", (1, int(time.time()), member.id))
+    conn.commit()
+
+    embed = disnake.Embed(
+        title="Репутация",
+        description=f'📉 Пользователь **{sender.mention}** убрал одну репутацию у пользователя **{member.mention}**\nТекущая репутация пользователя: **{current_reputation - 1}**.',
+        color=disnake.Color.orange()
+    )
+    await ctx.send(embed=embed)
+
+    # Удаляем оригинальное сообщение отправителя
+    await ctx.message.delete()
+
+@bot.command()
+async def setrep(ctx, member: disnake.Member = None, amount: int = 0):
+    if member is None:
+        embed = disnake.Embed(
+            title="Ошибка",
+            description="Вы не упомянули пользователя, у которого хотите установить репутацию.",
+            color=disnake.Color.red()
+        )
+        await ctx.send(embed=embed)
+        return
+
+    sender = ctx.author
+    if member.id == sender.id:
+        embed = disnake.Embed(
+            title="Ошибка",
+            description="Вы не можете устанавливать репутацию самому себе!",
+            color=disnake.Color.red()
+        )
+        await ctx.send(embed=embed)
+        return
+
+    # Устанавливаем новую репутацию пользователя
+    cursor.execute("INSERT OR IGNORE INTO reputation (user_id, reputation, last_used) VALUES (?, 0, ?)", (member.id, int(time.time())))
+    cursor.execute("UPDATE reputation SET reputation = ?, last_used = ? WHERE user_id = ?", (amount, int(time.time()), member.id))
+    conn.commit()
+
+    embed = disnake.Embed(
+        title="Репутация",
+        description=f'📊 Пользователь **{sender.mention}** установил репутацию **{amount}** для пользователя **{member.mention}**.',
+        color=disnake.Color.red()
+    )
+    await ctx.send(embed=embed)
 
 async def get_server_info(ip, port):
     url = f"https://api.battlemetrics.com/servers?filter[game]=unturned&filter[search]={ip}:{port}"
@@ -236,9 +249,19 @@ async def players(ctx):
             await ctx.send("No players online.")
     else:
         await ctx.send("Server not found.")
+  
+@bot.command()
+async def rating(ctx, member: disnake.Member):
+    # Получаем текущую репутацию пользователя из базы данных
+    cursor.execute("SELECT reputation FROM reputation WHERE user_id = ?", (member.id,))
+    result = cursor.fetchone()
+    current_reputation = result[0] if result else 0
 
-
-
+    embed = disnake.Embed(
+        title="Репутация",
+        description=f"У пользователя {member.mention} репутация: {current_reputation}",
+        color=disnake.Color.blue()
+    )
+    await ctx.send(embed=embed)
 
 bot.run("MTEwOTkxMDczMTgwNzI2ODg2NQ.Go-fNw.JAViLdmfINg-d3xXvi_810tSbB72Jm8gJRSv28")
-
