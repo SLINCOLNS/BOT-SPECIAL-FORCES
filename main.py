@@ -92,11 +92,11 @@ async def rep(ctx, *, args: str = ""):
     conn.commit()
 
 
-        comment = comment.strip()  # Убираем лишние пробелы в начале и конце комментария
-    if comment:
-        comment_text = f"Комментарий: {comment}"
-    else:
-        comment_text = ""
+    cleaned_args = args
+    for mention in ctx.message.mentions:
+        cleaned_args = cleaned_args.replace(mention.mention, "")
+
+    comment = f"Комментарий: {cleaned_args.strip()}"
     embed = disnake.Embed(
         title="Репутация",
         description=f'📈 Пользователь **{ctx.author.mention}** поблагодарил пользователя **{member.mention}**\nВсего у пользователя репутации: **{current_reputation + 1}**\n{comment}',
@@ -156,12 +156,11 @@ async def unrep(ctx, *, args: str = ""):
     conn.commit()
 
     # Создаем комментарий
-    comment = comment.strip()  # Убираем лишние пробелы в начале и конце комментария
-    if comment:
-        comment_text = f"Комментарий: {comment}"
-    else:
-        comment_text = ""
+    cleaned_args = args
+    for mention in ctx.message.mentions:
+        cleaned_args = cleaned_args.replace(mention.mention, "")
 
+    comment = f"Комментарий: {cleaned_args.strip()}"
     embed = disnake.Embed(
         title="Репутация",
         description=f'📉 Пользователь **{sender.mention}** убрал одну репутацию у пользователя **{member.mention}**\nТекущая репутация пользователя: **{current_reputation - 1}**.\n{comment_text}',
