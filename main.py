@@ -91,7 +91,7 @@ async def rep(ctx, *, args: str = ""):
     cursor.execute("UPDATE reputation SET reputation = reputation + ?, last_used = ? WHERE user_id = ?", (1, int(time.time()), member.id))
     conn.commit()
 
-
+    # Удаление упоминаний из комментария
     cleaned_args = args
     for mention in ctx.message.mentions:
         cleaned_args = cleaned_args.replace(mention.mention, "")
@@ -106,6 +106,7 @@ async def rep(ctx, *, args: str = ""):
 
     # Удаляем оригинальное сообщение отправителя
     await ctx.message.delete()
+
     
 @bot.command()
 async def unrep(ctx, *, args: str = ""):
