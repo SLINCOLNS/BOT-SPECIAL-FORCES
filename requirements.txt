@@ -1,7 +1,6 @@
 disnake
 aiohttp
 discord-py-slash-command
-sqlite3
 asyncio
 time
 datetime
