@@ -47,6 +47,9 @@ bot.loop.create_task(update_activity())
 
 @bot.command()
 async def rep(ctx, *, args: str = ""):
+        if ctx.channel.id != 967445056250322964:
+        return
+    
     if not args:
         embed = disnake.Embed(
             title="Ошибка",
@@ -112,6 +115,10 @@ async def rep(ctx, *, args: str = ""):
     
 @bot.command()
 async def unrep(ctx, *, args: str = ""):
+        # Проверяем, что команда вызвана в нужном канале
+    if ctx.channel.id != 967445056250322964:
+        return
+        
     if not args:
         embed = disnake.Embed(
             title="Ошибка",
@@ -177,6 +184,23 @@ async def unrep(ctx, *, args: str = ""):
 
 @bot.command()
 async def setrep(ctx, member: disnake.Member = None, amount: int = 0):
+    # Проверяем, что команда вызвана в нужном канале
+    if ctx.channel.id != 967445056250322964:
+        return
+
+    # Проверяем роли у пользователя
+    allowed_roles = [967112931735126036, 956192778134650920, 358551967838109698]  # Замените ID ролей на свои
+    user_roles = [role.id for role in ctx.author.roles]
+
+    if not any(role_id in user_roles for role_id in allowed_roles):
+        embed = disnake.Embed(
+            title="Ошибка",
+            description="У вас нет разрешения на использование этой команды.",
+            color=disnake.Color.red()
+        )
+        await ctx.send(embed=embed)
+        return
+
     if member is None:
         embed = disnake.Embed(
             title="Ошибка",
