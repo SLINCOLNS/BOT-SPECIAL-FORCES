@@ -47,7 +47,8 @@ bot.loop.create_task(update_activity())
 
 @bot.command()
 async def rep(ctx, *, args: str = ""):
-        if ctx.channel.id != 967445056250322964:
+    # Проверяем, что команда вызвана в нужном канале
+    if ctx.channel.id != 967445056250322964:
         return
     
     if not args:
@@ -115,7 +116,7 @@ async def rep(ctx, *, args: str = ""):
     
 @bot.command()
 async def unrep(ctx, *, args: str = ""):
-        # Проверяем, что команда вызвана в нужном канале
+    # Проверяем, что команда вызвана в нужном канале
     if ctx.channel.id != 967445056250322964:
         return
         
