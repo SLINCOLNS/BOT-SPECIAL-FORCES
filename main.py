@@ -78,20 +78,6 @@ async def rep(ctx, *, args: str = ""):
     result = cursor.fetchone()
     current_reputation = result[0] if result else 0
 
-    # Проверяем, была ли команда уже использована в последний час
-    cursor.execute("SELECT last_used FROM reputation WHERE user_id = ?", (ctx.author.id,))
-    result = cursor.fetchone()
-    last_used = result[0] if result else 0
-
-    if time.time() - last_used < 3600:
-        embed = disnake.Embed(
-            title="Ошибка",
-            description=f"Вы уже использовали команду +rep. Подождите еще {int(3600 - (time.time() - last_used))} секунд.",
-            color=disnake.Color.red()
-        )
-        await ctx.send(embed=embed)
-        return
-
     # Увеличиваем репутацию пользователя на 1
     cursor.execute("INSERT OR IGNORE INTO reputation (user_id, reputation, last_used) VALUES (?, 0, ?)", (member.id, int(time.time())))
     cursor.execute("UPDATE reputation SET reputation = reputation + ?, last_used = ? WHERE user_id = ?", (1, int(time.time()), member.id))
@@ -146,20 +132,6 @@ async def unrep(ctx, *, args: str = ""):
     cursor.execute("SELECT reputation FROM reputation WHERE user_id = ?", (member.id,))
     result = cursor.fetchone()
     current_reputation = result[0] if result else 0
-
-    # Проверяем, была ли команда уже использована в последний час
-    cursor.execute("SELECT last_used FROM reputation WHERE user_id = ?", (ctx.author.id,))
-    result = cursor.fetchone()
-    last_used = result[0] if result else 0
-
-    if time.time() - last_used < 3600:
-        embed = disnake.Embed(
-            title="Ошибка",
-            description=f"Вы уже использовали команду unrep. Подождите еще {int(3600 - (time.time() - last_used))} секунд.",
-            color=disnake.Color.red()
-        )
-        await ctx.send(embed=embed)
-        return
 
     # Уменьшаем репутацию пользователя на 1
     cursor.execute("INSERT OR IGNORE INTO reputation (user_id, reputation, last_used) VALUES (?, 0, ?)", (member.id, int(time.time())))
