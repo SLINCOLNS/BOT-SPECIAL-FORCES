@@ -11,6 +11,7 @@ bot = commands.Bot(command_prefix="+", help_command=None, intents=disnake.Intent
 # Создаем подключение к базе данных
 conn = sqlite3.connect('reputation.db', check_same_thread=False)
 cursor = conn.cursor()
+allowed_channels = [967445056250322964, 1120359666535383040]
 
 # Проверяем существование таблицы, если её нет, создаем её
 cursor.execute('''
@@ -45,10 +46,114 @@ bot.loop.create_task(update_activity())
 
 # Остальной код остается без изменений
 
+@bot.event
+async def on_message(message):
+    # Проверяем, что сообщение не отправлено ботом, чтобы избежать зацикливания
+    if message.author.bot:
+        return
+
+    # Проверяем, является ли сообщение командой
+    ctx = await bot.get_context(message)
+
+    if message.channel.id in allowed_channels:
+        if ctx.valid:
+            await bot.invoke(ctx)  # Если сообщение - это команда, обрабатываем его
+        else:
+            # Если сообщение не является командой и не содержит одну из указанных команд,
+            # отправляем сообщение эмбедом и удаляем его
+            if not any(keyword in message.content for keyword in ["+rep", "+unrep", "+rating", "+setrep", "/top", "/lowtop"]):
+                embed = disnake.Embed(
+                    title="Неверная команда",
+                    description="Возможно, вы имели в виду:\n"
+                                "+rep @name {Комментарий} - Повысить репутацию пользователю\n"
+                                "+unrep @name {Комментарий} - Понизить репутацию пользователю\n"
+                                "+rating @name - Текущий рейтинг пользователя\n"
+                                "/top - Топ 10 пользователей по рейтингу\n"
+                                "/lowtop - Топ 10 пользователей с наименьшим количеством рейтинга",
+                    color=disnake.Color.red()
+                )
+                await message.channel.send(embed=embed)
+                await message.delete()
+    else:
+        # Если сообщение отправлено в канал, который не в списке разрешенных, не удаляем его
+        pass
+
+@bot.slash_command()
+async def top(ctx):
+    """Получить топ 10 пользователей с наибольшим рейтингом"""
+    # Выполняем SQL-запрос для получения топ-10 пользователей по рейтингу
+    cursor.execute("SELECT user_id, reputation FROM reputation ORDER BY reputation DESC LIMIT 10")
+    top_users = cursor.fetchall()
+
+    if not top_users:
+        await ctx.send("На данный момент еще нет пользователей с рейтингом.")
+        return
+
+    # Создаем сообщение с топ-10 пользователями
+    embed = disnake.Embed(
+        title="Топ 10 пользователей по рейтингу",
+        color=disnake.Color.gold()
+    )
+
+    for rank, (user_id, reputation) in enumerate(top_users, start=1):
+        member = ctx.guild.get_member(user_id)
+        if member:
+            embed.add_field(
+                name=f"{rank}. {member.display_name}",
+                value=f"Рейтинг: {reputation}",
+                inline=False
+            )
+        else:
+            # Если пользователя нет на сервере, используем его ID
+            embed.add_field(
+                name=f"{rank}. User ID: {user_id}",
+                value=f"Рейтинг: {reputation}",
+                inline=False
+            )
+
+    await ctx.send(embed=embed)
+
+@bot.slash_command()
+async def lowtop(ctx):
+    """Получить топ 10 пользователей с наименьшим рейтингом"""
+    # Выполняем SQL-запрос для получения пользователей с наименьшим рейтингом
+    cursor.execute("SELECT user_id, reputation FROM reputation ORDER BY reputation ASC LIMIT 10")
+    low_rating_users = cursor.fetchall()
+
+    if not low_rating_users:
+        await ctx.send("На данный момент нет пользователей с наименьшим рейтингом.")
+        return
+
+    # Создаем сообщение с пользователями с наименьшим рейтингом
+    embed = disnake.Embed(
+        title="Пользователи с наименьшим рейтингом",
+        color=disnake.Color.red()
+    )
+
+    for rank, (user_id, reputation) in enumerate(low_rating_users, start=1):
+        member = ctx.guild.get_member(user_id)
+        if member:
+            embed.add_field(
+                name=f"{rank}. {member.display_name}",
+                value=f"Рейтинг: {reputation}",
+                inline=False
+            )
+        else:
+            # Если пользователя нет на сервере, используем его ID
+            embed.add_field(
+                name=f"{rank}. User ID: {user_id}",
+                value=f"Рейтинг: {reputation}",
+                inline=False
+            )
+
+    await ctx.send(embed=embed)
+
 @bot.command()
 async def rep(ctx, *, args: str = ""):
     # Проверяем, что команда вызвана в нужном канале
-    if ctx.channel.id != 967445056250322964:
+    allowed_channels = [967445056250322964, 1120359666535383040]
+
+    if ctx.channel.id not in allowed_channels:
         return
     
     if not args:
@@ -58,6 +163,7 @@ async def rep(ctx, *, args: str = ""):
             color=disnake.Color.red()
         )
         await ctx.send(embed=embed)
+        await ctx.message.delete()
         return
 
     member = ctx.author
@@ -71,6 +177,7 @@ async def rep(ctx, *, args: str = ""):
             color=disnake.Color.red()
         )
         await ctx.send(embed=embed)
+        await ctx.message.delete()
         return
 
     # Получаем текущую репутацию пользователя из базы данных
@@ -99,20 +206,23 @@ async def rep(ctx, *, args: str = ""):
     # Удаляем оригинальное сообщение отправителя
     await ctx.message.delete()
 
-    
 @bot.command()
 async def unrep(ctx, *, args: str = ""):
-    # Проверяем, что команда вызвана в нужном канале
-    if ctx.channel.id != 967445056250322964:
+    allowed_channels = [967445056250322964, 1120359666535383040]
+
+    if ctx.channel.id not in allowed_channels:
         return
-        
+      
     if not args:
+        user_avatar_url = ctx.author.avatar_url
         embed = disnake.Embed(
             title="Ошибка",
             description="Вы не упомянули пользователя, у которого хотите убрать репутацию, или не указали комментарий.",
             color=disnake.Color.red()
         )
+        embed.set_thumbnail(url=user_avatar_url)
         await ctx.send(embed=embed)
+        await ctx.message.delete()
         return
 
     member = ctx.author
@@ -126,6 +236,7 @@ async def unrep(ctx, *, args: str = ""):
             color=disnake.Color.red()
         )
         await ctx.send(embed=embed)
+        await ctx.message.delete()
         return
 
     # Получаем текущую репутацию пользователя из базы данных
@@ -147,7 +258,7 @@ async def unrep(ctx, *, args: str = ""):
     embed = disnake.Embed(
         title="Репутация",
         description=f'📉 Пользователь **{ctx.author.mention}** убрал одну репутацию у пользователя **{member.mention}**\nТекущая репутация пользователя: **{current_reputation - 1}**.\n{comment}',
-        color=disnake.Color.orange()
+        color=disnake.Color.red()
     )
     await ctx.send(embed=embed)
 
@@ -239,35 +350,33 @@ async def online(ctx):
         await ctx.send(embed=embed)
     else:
         await ctx.send("The server was not found.")
-        
+      
 @bot.slash_command()
-async def players(ctx):
-    """Список игроков в онлайне"""
-    ip = "194.147.90.86"
-    port = 25544
+async def help(ctx):
+    """Получить список доступных команд"""
+    # Создаем список команд с их описанием
+    commands_list = [
+        ("/help", "Получить список доступных команд."),
+        ("/online", "Получить количество онлайн-игроков на сервере."),
+        ("+rating @пользователь", "Получить рейтинг пользователя."),
+        ("+rep @пользователь [комментарий]", "Повысить репутацию пользователя."),
+        ("+unrep @пользователь [комментарий]", "Понизить репутацию пользователя."),
+        ("/top", "Топ 10 пользователей по рейтингу."),
+        ("/lowtop", "Топ 10 пользователей с наименьшим количеством рейтинга."),
+    ]
 
-    response = await aiohttp.ClientSession().get(f"https://api.battlemetrics.com/servers?filter[game]=unturned&filter[search]={ip}:{port}")
-    data = await response.json()
+    # Создаем embed с списком команд
+    embed = disnake.Embed(
+        title="Список команд бота",
+        description="Список доступных команд и их описаний:",
+        color=disnake.Color.blue()
+    )
 
-    if "data" in data and len(data["data"]) > 0:
-        server_id = data["data"][0]["id"]
-        players_response = await aiohttp.ClientSession().get(f"https://api.battlemetrics.com/players?filter[servers]={server_id}&filter[online]=true")
-        players_data = await players_response.json()
+    for command, description in commands_list:
+        embed.add_field(name=command, value=description, inline=False)
 
-        if "data" in players_data and len(players_data["data"]) > 0:
-            players = players_data["data"]
-            player_list = [player["attributes"]["name"] for player in players]
+    await ctx.send(embed=embed)
 
-            # Разбиение списка игроков на группы по 20
-            player_groups = [player_list[i:i + 20] for i in range(0, len(player_list), 20)]
-
-            for group in player_groups:
-                player_names = "\n".join(group)
-                await ctx.send(f"Players Online - DWS WARP RP:\n{player_names}")
-        else:
-            await ctx.send("No players online.")
-    else:
-        await ctx.send("Server not found.")
   
 @bot.command()
 async def rating(ctx, member: disnake.Member):
@@ -282,5 +391,6 @@ async def rating(ctx, member: disnake.Member):
         color=disnake.Color.blue()
     )
     await ctx.send(embed=embed)
+    await ctx.message.delete()
 
-bot.run("MTEwOTkxMDczMTgwNzI2ODg2NQ.Go-fNw.JAViLdmfINg-d3xXvi_810tSbB72Jm8gJRSv28")
+bot.run("MTEwOTkxMDczMTgwNzI2ODg2NQ.G5NgO8.5JeaC0jfyYpChGAV0wVznQIlz6UY8CSD199zUw")
