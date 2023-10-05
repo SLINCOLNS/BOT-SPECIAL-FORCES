@@ -254,7 +254,7 @@ async def setrep(ctx, member: disnake.Member = None, amount: int = 0):
         return
 
     # Проверяем роли у пользователя
-    allowed_roles = [967112931735126036, 956192778134650920, 358551967838109698, 412597708608634881]  # Замените ID ролей на свои
+    allowed_roles = [967112924017590432, 956192778134650920, 358551967838109698]  # Замените ID ролей на свои
     user_roles = [role.id for role in ctx.author.roles]
 
     if not any(role_id in user_roles for role_id in allowed_roles):
