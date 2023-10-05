@@ -4,6 +4,7 @@ import sqlite3
 import asyncio
 import time
 import datetime
+import discord 
 import aiohttp
 
 bot = commands.Bot(command_prefix="+", help_command=None, intents=disnake.Intents.all())
@@ -52,31 +53,34 @@ async def on_message(message):
     if message.author.bot:
         return
 
+    allowed_channels = [967445056250322964, 1120359666535383040]
+
     # Проверяем, является ли сообщение командой
     ctx = await bot.get_context(message)
 
     if message.channel.id in allowed_channels:
-        if ctx.valid:
-            await bot.invoke(ctx)  # Если сообщение - это команда, обрабатываем его
+        if message.content.startswith('-rep'):
+            # Разбиваем сообщение на части по пробелу
+            parts = message.content.split()
+            if len(parts) >= 2:
+                # Получаем упоминание пользователя из сообщения
+                user_mention = parts[1]
+                # Пробуем получить пользователя из упоминания
+                member = discord.utils.get(message.guild.members, mention=user_mention)
+                if member and member.id != message.author.id:
+                    # Выполняем действия как в команде +unrep
+                    # Уменьшаем репутацию пользователя на 1
+                    cursor.execute("INSERT OR IGNORE INTO reputation (user_id, reputation, last_used) VALUES (?, 0, ?)", (member.id, int(time.time())))
+                    cursor.execute("UPDATE reputation SET reputation = reputation - ?, last_used = ? WHERE user_id = ?", (1, int(time.time()), member.id))
+                    conn.commit()
+                    # Добавляем реакцию ✅ под сообщением пользователя
+                    await message.add_reaction('✅')
         else:
-            # Если сообщение не является командой и не содержит одну из указанных команд,
-            # отправляем сообщение эмбедом и удаляем его
-            if not any(keyword in message.content for keyword in ["+rep", "+unrep", "+rating", "+setrep", "/top", "/lowtop"]):
-                embed = disnake.Embed(
-                    title="Неверная команда",
-                    description="Возможно, вы имели в виду:\n"
-                                "+rep @name {Комментарий} - Повысить репутацию пользователю\n"
-                                "+unrep @name {Комментарий} - Понизить репутацию пользователю\n"
-                                "+rating @name - Текущий рейтинг пользователя\n"
-                                "/top - Топ 10 пользователей по рейтингу\n"
-                                "/lowtop - Топ 10 пользователей с наименьшим количеством рейтинга",
-                    color=disnake.Color.red()
-                )
-                await message.channel.send(embed=embed)
-                await message.delete()
-    else:
-        # Если сообщение отправлено в канал, который не в списке разрешенных, не удаляем его
-        pass
+            await bot.invoke(ctx)  # Если сообщение - это команда, обрабатываем его
+
+    # Обработка команды, если сообщение начинается с префикса '/'
+    if message.content.startswith('/'):
+        await bot.process_commands(message)
 
 @bot.slash_command()
 async def top(ctx):
@@ -157,12 +161,7 @@ async def rep(ctx, *, args: str = ""):
         return
     
     if not args:
-        embed = disnake.Embed(
-            title="Ошибка",
-            description="Вы не упомянули пользователя, которому хотите дать репутацию, или не указали комментарий.",
-            color=disnake.Color.red()
-        )
-        await ctx.send(embed=embed)
+        await ctx.send("Вы не упомянули пользователя, которому хотите дать репутацию, или не указали комментарий.")
         await ctx.message.delete()
         return
 
@@ -171,12 +170,7 @@ async def rep(ctx, *, args: str = ""):
         member = ctx.message.mentions[0]
 
     if member.id == ctx.author.id:
-        embed = disnake.Embed(
-            title="Ошибка",
-            description="Вы не можете дать репутацию самому себе!",
-            color=disnake.Color.red()
-        )
-        await ctx.send(embed=embed)
+        await ctx.send("Вы не можете дать репутацию самому себе!")
         await ctx.message.delete()
         return
 
@@ -190,21 +184,8 @@ async def rep(ctx, *, args: str = ""):
     cursor.execute("UPDATE reputation SET reputation = reputation + ?, last_used = ? WHERE user_id = ?", (1, int(time.time()), member.id))
     conn.commit()
 
-    # Удаление упоминаний из комментария
-    cleaned_args = args
-    for mention in ctx.message.mentions:
-        cleaned_args = cleaned_args.replace(mention.mention, "")
+    await ctx.message.add_reaction('✅')
 
-    comment = f"Комментарий: {cleaned_args.strip()}"
-    embed = disnake.Embed(
-        title="Репутация",
-        description=f'📈 Пользователь **{ctx.author.mention}** поблагодарил пользователя **{member.mention}**\nВсего у пользователя репутации: **{current_reputation + 1}**\n{comment}',
-        color=disnake.Color.green()
-    )
-    await ctx.send(embed=embed)
-
-    # Удаляем оригинальное сообщение отправителя
-    await ctx.message.delete()
 
 @bot.command()
 async def unrep(ctx, *, args: str = ""):
