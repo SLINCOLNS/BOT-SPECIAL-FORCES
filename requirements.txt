@@ -3,3 +3,4 @@ aiohttp
 discord-py-slash-command
 asyncio
 datetime
+discord.py
