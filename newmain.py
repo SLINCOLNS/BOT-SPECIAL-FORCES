@@ -9,12 +9,11 @@ import aiohttp
 
 bot = commands.Bot(command_prefix="+", help_command=None, intents=disnake.Intents.all())
 
-# Создаем подключение к базе данных
 conn = sqlite3.connect('reputation.db', check_same_thread=False)
 cursor = conn.cursor()
 allowed_channels = [967445056250322964, 1120359666535383040]
 
-# Проверяем существование таблицы, если её нет, создаем её
+
 cursor.execute('''
     CREATE TABLE IF NOT EXISTS reputation (
         user_id INTEGER PRIMARY KEY,
@@ -23,7 +22,6 @@ cursor.execute('''
     )
 ''')
 
-# Убираем conn.commit() после создания таблицы
 
 async def update_activity():
     await bot.wait_until_ready()
@@ -41,7 +39,7 @@ async def update_activity():
                 name=f"{player_count}/{max_players} игроков"
             )
             await bot.change_presence(activity=activity)
-        await asyncio.sleep(300)  # Обновление активности каждые 5 минут
+        await asyncio.sleep(300) 
 
 bot.loop.create_task(update_activity())
 
@@ -49,43 +47,38 @@ bot.loop.create_task(update_activity())
 
 @bot.event
 async def on_message(message):
-    # Проверяем, что сообщение не отправлено ботом, чтобы избежать зацикливания
     if message.author.bot:
         return
 
     allowed_channels = [967445056250322964, 1120359666535383040]
 
-    # Проверяем, является ли сообщение командой
     ctx = await bot.get_context(message)
 
     if message.channel.id in allowed_channels:
         if message.content.startswith('-rep'):
-            # Разбиваем сообщение на части по пробелу
             parts = message.content.split()
             if len(parts) >= 2:
-                # Получаем упоминание пользователя из сообщения
                 user_mention = parts[1]
-                # Пробуем получить пользователя из упоминания
+
                 member = discord.utils.get(message.guild.members, mention=user_mention)
                 if member and member.id != message.author.id:
-                    # Выполняем действия как в команде +unrep
-                    # Уменьшаем репутацию пользователя на 1
+
                     cursor.execute("INSERT OR IGNORE INTO reputation (user_id, reputation, last_used) VALUES (?, 0, ?)", (member.id, int(time.time())))
                     cursor.execute("UPDATE reputation SET reputation = reputation - ?, last_used = ? WHERE user_id = ?", (1, int(time.time()), member.id))
                     conn.commit()
-                    # Добавляем реакцию ✅ под сообщением пользователя
+
                     await message.add_reaction('✅')
         else:
-            await bot.invoke(ctx)  # Если сообщение - это команда, обрабатываем его
+            await bot.invoke(ctx) 
 
-    # Обработка команды, если сообщение начинается с префикса '/'
+
     if message.content.startswith('/'):
         await bot.process_commands(message)
 
 @bot.slash_command()
 async def top(ctx):
     """Получить топ 10 пользователей с наибольшим рейтингом"""
-    # Выполняем SQL-запрос для получения топ-10 пользователей по рейтингу
+
     cursor.execute("SELECT user_id, reputation FROM reputation ORDER BY reputation DESC LIMIT 10")
     top_users = cursor.fetchall()
 
@@ -93,7 +86,6 @@ async def top(ctx):
         await ctx.send("На данный момент еще нет пользователей с рейтингом.")
         return
 
-    # Создаем сообщение с топ-10 пользователями
     embed = disnake.Embed(
         title="Топ 10 пользователей по рейтингу",
         color=disnake.Color.gold()
@@ -108,7 +100,6 @@ async def top(ctx):
                 inline=False
             )
         else:
-            # Если пользователя нет на сервере, используем его ID
             embed.add_field(
                 name=f"{rank}. User ID: {user_id}",
                 value=f"Рейтинг: {reputation}",
@@ -120,7 +111,6 @@ async def top(ctx):
 @bot.slash_command()
 async def lowtop(ctx):
     """Получить топ 10 пользователей с наименьшим рейтингом"""
-    # Выполняем SQL-запрос для получения пользователей с наименьшим рейтингом
     cursor.execute("SELECT user_id, reputation FROM reputation ORDER BY reputation ASC LIMIT 10")
     low_rating_users = cursor.fetchall()
 
@@ -128,7 +118,6 @@ async def lowtop(ctx):
         await ctx.send("На данный момент нет пользователей с наименьшим рейтингом.")
         return
 
-    # Создаем сообщение с пользователями с наименьшим рейтингом
     embed = disnake.Embed(
         title="Пользователи с наименьшим рейтингом",
         color=disnake.Color.red()
@@ -143,7 +132,6 @@ async def lowtop(ctx):
                 inline=False
             )
         else:
-            # Если пользователя нет на сервере, используем его ID
             embed.add_field(
                 name=f"{rank}. User ID: {user_id}",
                 value=f"Рейтинг: {reputation}",
@@ -154,7 +142,6 @@ async def lowtop(ctx):
 
 @bot.command()
 async def rep(ctx, *, args: str = ""):
-    # Проверяем, что команда вызвана в нужном канале
     allowed_channels = [967445056250322964, 1120359666535383040]
 
     if ctx.channel.id not in allowed_channels:
@@ -174,12 +161,10 @@ async def rep(ctx, *, args: str = ""):
         await ctx.message.delete()
         return
 
-    # Получаем текущую репутацию пользователя из базы данных
     cursor.execute("SELECT reputation FROM reputation WHERE user_id = ?", (member.id,))
     result = cursor.fetchone()
     current_reputation = result[0] if result else 0
 
-    # Увеличиваем репутацию пользователя на 1
     cursor.execute("INSERT OR IGNORE INTO reputation (user_id, reputation, last_used) VALUES (?, 0, ?)", (member.id, int(time.time())))
     cursor.execute("UPDATE reputation SET reputation = reputation + ?, last_used = ? WHERE user_id = ?", (1, int(time.time()), member.id))
     conn.commit()
@@ -220,17 +205,15 @@ async def unrep(ctx, *, args: str = ""):
         await ctx.message.delete()
         return
 
-    # Получаем текущую репутацию пользователя из базы данных
+
     cursor.execute("SELECT reputation FROM reputation WHERE user_id = ?", (member.id,))
     result = cursor.fetchone()
     current_reputation = result[0] if result else 0
 
-    # Уменьшаем репутацию пользователя на 1
     cursor.execute("INSERT OR IGNORE INTO reputation (user_id, reputation, last_used) VALUES (?, 0, ?)", (member.id, int(time.time())))
     cursor.execute("UPDATE reputation SET reputation = reputation - ?, last_used = ? WHERE user_id = ?", (1, int(time.time()), member.id))
     conn.commit()
 
-    # Создаем комментарий
     cleaned_args = args
     for mention in ctx.message.mentions:
         cleaned_args = cleaned_args.replace(mention.mention, "")
@@ -243,18 +226,17 @@ async def unrep(ctx, *, args: str = ""):
     )
     await ctx.send(embed=embed)
 
-    # Удаляем оригинальное сообщение отправителя
+
     await ctx.message.delete()
 
 
 @bot.command()
 async def setrep(ctx, member: disnake.Member = None, amount: int = 0):
-    # Проверяем, что команда вызвана в нужном канале
     if ctx.channel.id != 967445056250322964:
         return
 
-    # Проверяем роли у пользователя
-    allowed_roles = [967112931735126036, 956192778134650920, 358551967838109698]  # Замените ID ролей на свои
+
+    allowed_roles = [967112931735126036, 956192778134650920, 358551967838109698]
     user_roles = [role.id for role in ctx.author.roles]
 
     if not any(role_id in user_roles for role_id in allowed_roles):
@@ -285,7 +267,6 @@ async def setrep(ctx, member: disnake.Member = None, amount: int = 0):
         await ctx.send(embed=embed)
         return
 
-    # Устанавливаем новую репутацию пользователя
     cursor.execute("INSERT OR IGNORE INTO reputation (user_id, reputation, last_used) VALUES (?, 0, ?)", (member.id, int(time.time())))
     cursor.execute("UPDATE reputation SET reputation = ?, last_used = ? WHERE user_id = ?", (amount, int(time.time()), member.id))
     conn.commit()
@@ -335,7 +316,6 @@ async def online(ctx):
 @bot.slash_command()
 async def help(ctx):
     """Получить список доступных команд"""
-    # Создаем список команд с их описанием
     commands_list = [
         ("/help", "Получить список доступных команд."),
         ("/online", "Получить количество онлайн-игроков на сервере."),
@@ -346,7 +326,6 @@ async def help(ctx):
         ("/lowtop", "Топ 10 пользователей с наименьшим количеством рейтинга."),
     ]
 
-    # Создаем embed с списком команд
     embed = disnake.Embed(
         title="Список команд бота",
         description="Список доступных команд и их описаний:",
@@ -361,7 +340,6 @@ async def help(ctx):
   
 @bot.command()
 async def rating(ctx, member: disnake.Member):
-    # Получаем текущую репутацию пользователя из базы данных
     cursor.execute("SELECT reputation FROM reputation WHERE user_id = ?", (member.id,))
     result = cursor.fetchone()
     current_reputation = result[0] if result else 0
@@ -374,4 +352,4 @@ async def rating(ctx, member: disnake.Member):
     await ctx.send(embed=embed)
     await ctx.message.delete()
 
-bot.run("MTEwOTkxMDczMTgwNzI2ODg2NQ.G5NgO8.5JeaC0jfyYpChGAV0wVznQIlz6UY8CSD199zUw")
+bot.run("-")
